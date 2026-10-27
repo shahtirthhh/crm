@@ -3,6 +3,8 @@
 Source: *D.K Lift Services — Projects CRM, Proposal for Discussion* (October 2026) and the working session of 7 October 2026.
 Status: draft for the Phase 0 design session. Field lists and stage names below are proposals; the client confirms them.
 
+> **Revision (27 Oct 2026):** the stack moved to **MongoDB Atlas + shadcn/ui on Vercel**, at the client's request. Modules 01–05 and the website intake are implemented in this repository; see the README for how it is built and deployed. Sections below are updated where the choice changed.
+
 > The PDF we received has 18 pages. The contents page also lists *Commercials and delivery* (p.19) and a *Technology landscape* appendix (p.23), but those pages are missing. The phasing in §9 is our engineering view. Reconcile it with the commercial pages before it goes to the client.
 
 ---
@@ -51,7 +53,7 @@ flowchart LR
     DOM[Domain services<br/>rules, schedules, programme]
     RH[Route Handlers<br/>public form, cron, webhooks]
   end
-  DB[(Postgres<br/>London region, PITR)]
+  DB[(MongoDB Atlas<br/>London region, replica set, PITR)]
   BL[(Object storage<br/>quotes, drawings, photos)]
   W --> RH
   E & P & T --> UI
@@ -69,11 +71,12 @@ flowchart LR
 | Concern | Choice | Rationale |
 |---|---|---|
 | App framework | **Next.js 16** (already scaffolded: App Router, `cacheComponents`, Tailwind 4) | One codebase for UI and API. Server Components keep the data on the server. Responsive UI covers the mobile need. |
-| Database | **Postgres** (managed: Neon or Supabase, London region) | Relational data with strong integrity needs (money, stage transitions). Point-in-time recovery. |
-| ORM / migrations | **Drizzle** | Typed SQL with explicit migrations checked into the repo. Thin enough to drop to SQL for reporting. |
-| Auth | **Microsoft Entra ID SSO** (D.K already uses Outlook/M365) through Better Auth, with database sessions | No new passwords to manage. MFA and leaver offboarding are handled in M365. |
+| Database | **MongoDB Atlas** (London region, replica set) | Records map naturally onto documents: a client with its contacts, sites and lifts; an opportunity with its survey and quote revisions; a project with its programme and 60/20/20 milestones. Transactions cover the few multi-document writes. Atlas scales storage and reads without re-platforming, and has continuous backup. |
+| Data access | **Official MongoDB driver** + typed collections, Zod at the edges, idempotent index setup (`npm run db:setup`) | No ORM layer to fight. Aggregation pipelines drive the dashboard and Monday review. |
+| Auth | **Better Auth** (MongoDB adapter) with email/password and optional **Microsoft Entra ID** sign-in (D.K already uses M365) | Admin-created accounts only. Microsoft SSO brings MFA and leaver offboarding from M365. |
+| UI | **shadcn/ui** (Radix + Tailwind 4), D.K black/red theme | Accessible primitives owned in the repo; the same components serve desktop and phone. |
 | Validation | **Zod** schemas shared by forms and Server Actions | One definition of "required field". |
-| Files | Private object storage (Vercel Blob or S3 `eu-west-2`), served through short-lived signed URLs | Quotes, drawings (with revisions), survey photos and RAMS. |
+| Files | Private **Vercel Blob** store; uploads go straight from the browser using short-lived client tokens; downloads go through an authenticated route | Quotes, drawings (with revisions), survey photos and RAMS. |
 | Scheduled jobs | Vercel Cron calling Route Handlers | Daily digest, Monday review pack, overdue sweeps. Volumes are tiny, so no queue is needed. |
 | Outbound email | Microsoft Graph `sendMail` from a D.K mailbox | Mail comes from D.K's own domain, with no extra vendor. |
 | Testing | Vitest (domain rules), Playwright (critical flows) | Playwright is already available in the dev environment. |
@@ -109,7 +112,7 @@ app/
     enquiries/route.ts        # public website form (Turnstile + rate limit)
     cron/[job]/route.ts       # CRON_SECRET-protected
 lib/
-  db/ schema.ts migrations/
+  db/ mongo.ts collections.ts types.ts
   dal/                        # session, RBAC, queries; the only module that touches db
   domain/                     # pure, unit-tested: stages, followUpRules, billingSchedule,
                               # programmeTemplate, metrics
