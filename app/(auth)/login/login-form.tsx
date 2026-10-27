@@ -18,6 +18,7 @@ export function LoginForm({ microsoft }: { microsoft: boolean }) {
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
   const [error, setError] = useState<string | null>(params.get("error") ? "That account is not set up in the CRM." : null);
+  const justSetUp = params.get("setup") === "1";
   const [pending, startTransition] = useTransition();
 
   return (
@@ -50,6 +51,7 @@ export function LoginForm({ microsoft }: { microsoft: boolean }) {
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" autoComplete="current-password" required />
         </div>
+        {justSetUp && !error && <p className="text-success text-sm">Administrator created. Sign in to continue.</p>}
         {error && <p className="text-destructive text-sm">{error}</p>}
         <Button type="submit" disabled={pending}>
           {pending ? "Signing in…" : "Sign in"}

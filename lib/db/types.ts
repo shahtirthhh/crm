@@ -255,5 +255,6 @@ export interface SettingsDoc {
   _id: "settings";
   stageProbability: Record<string, number>;
   triageOwnerId?: string;
+  setupVersion?: number;
   updatedAt: Date;
 }

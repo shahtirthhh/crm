@@ -72,23 +72,31 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
 
 ## Deploying to Vercel
 
-1. **MongoDB Atlas.** Create a cluster in a London region (AWS eu-west-2). Create a database user. Allow access from Vercel: use `0.0.0.0/0` with a strong password, or Atlas' Vercel integration. Copy the connection string.
-2. **Vercel project.** Import the repository. The framework is detected as Next.js, and `vercel.json` pins functions to `lhr1` (London) and registers the daily cron.
-3. **Storage.** Create a Blob store in the project's Storage tab. This adds `BLOB_READ_WRITE_TOKEN`.
-4. **Environment variables.** Set these for Production, plus Preview if you use it:
-   - `MONGODB_URI`
-   - `BETTER_AUTH_SECRET`: `openssl rand -base64 32`
-   - `BETTER_AUTH_URL`: the production URL
-   - `CRON_SECRET`
-   - `ENQUIRY_ALLOWED_ORIGINS`: e.g. `https://www.dkliftservices.co.uk`
-   - optionally the three `MICROSOFT_*` variables
-5. **Initialise the database once**, from your machine, against the production URI:
-   ```bash
-   MONGODB_URI="mongodb+srv://…" SEED_ADMIN_EMAIL=md@dkliftservices.co.uk SEED_ADMIN_PASSWORD='…' npm run db:setup
-   ```
-   Re-run it after upgrades that add indexes; it is idempotent. Do not run `db:seed` against production.
-6. **Microsoft sign-in (optional).** In Entra ID, register an app with redirect URI `https://<your-domain>/api/auth/callback/microsoft` and set the `MICROSOFT_*` variables. Users must already exist in the CRM with the same email.
-7. **Website form.** Point the enquiry form at `https://<your-domain>/api/enquiries`. The accepted fields are listed under Settings in the app.
+No commands are needed on Vercel. The database is set up by the app itself.
+
+1. **MongoDB Atlas.** Use a cluster in a London region if possible.
+   - Under *Network Access*, allow `0.0.0.0/0`. Vercel functions don't have fixed IPs unless you use Atlas' Vercel integration.
+   - Use a database user with read/write access to the database named in the URI.
+2. **Vercel project.** Import the repository. The framework is detected as Next.js. `vercel.json` pins functions to `lhr1` (London) and registers the daily cron.
+3. **Blob store.** In the project, open *Storage* → *Create* → *Blob*, choose **Private** access, and connect it to the project. Vercel adds `BLOB_READ_WRITE_TOKEN` automatically.
+4. **Environment variables** (*Settings* → *Environment Variables*):
+
+   | Variable | Value |
+   |---|---|
+   | `MONGODB_URI` | the Atlas `mongodb+srv://…/crm` connection string |
+   | `BETTER_AUTH_SECRET` | a random string of 32+ characters |
+   | `CRON_SECRET` | a random string; it is also the setup code in step 6 |
+   | `ENQUIRY_ALLOWED_ORIGINS` | e.g. `https://www.dkliftservices.co.uk` (optional) |
+   | `BETTER_AUTH_URL` | only when you add a custom domain, e.g. `https://projects.dkliftservices.co.uk` |
+
+   The `*.vercel.app` URLs are trusted automatically.
+5. **Deploy.**
+6. **Open `https://<your-app>/setup`.** Create the first administrator, using `CRON_SECRET` as the setup code. Indexes and the product catalogue are created on first use. The setup page stops working once any user exists. Add the rest of the team under *Settings → Users*.
+7. **Website form.** Point the enquiry form at `https://<your-app>/api/enquiries`. The accepted fields are listed under Settings.
+
+Microsoft sign-in is optional. It switches on when `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_TENANT_ID` are set, with redirect URI `https://<your-app>/api/auth/callback/microsoft`.
+
+From a machine that can reach the cluster, `npm run db:setup` does the same initialisation from the command line. `npm run db:seed -- --reset` loads demo data. **Never run the seed against production.**
 
 ## Roles
 

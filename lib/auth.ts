@@ -7,10 +7,18 @@ import { ObjectId } from "mongodb";
 
 import { getDb, mongoClient } from "@/lib/db/mongo";
 
+// On Vercel the production, branch and per-deployment URLs are trusted automatically, so
+// BETTER_AUTH_URL is only needed for a custom domain.
+const vercelOrigins = [process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_URL]
+  .filter((host): host is string => !!host)
+  .map((host) => `https://${host}`);
+
 const microsoftConfigured = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
 
 export const auth = betterAuth({
   appName: "D.K Projects CRM",
+  baseURL: process.env.BETTER_AUTH_URL ?? vercelOrigins[0],
+  trustedOrigins: vercelOrigins,
   database: mongodbAdapter(getDb(), { client: mongoClient }),
   // Accounts are created by an administrator (Settings → Users) or the seed script.
   emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 10 },

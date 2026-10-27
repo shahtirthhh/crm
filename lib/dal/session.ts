@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { ensureDatabase } from "@/lib/db/bootstrap";
 import type { Role } from "@/lib/domain/constants";
 import { can, type Capability } from "@/lib/domain/permissions";
 
@@ -24,6 +25,8 @@ export class AuthorizationError extends Error {
 
 /** Reads the session once per request. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  // Indexes and the product catalogue are created on first use; later calls reuse the same promise.
+  await ensureDatabase();
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
   const user = session.user as typeof session.user & { role?: Role; active?: boolean };
